@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/scripts/usage_overlay.py\" --spawn",
+            "commandWindows": "python \"${PLUGIN_ROOT}\\scripts\\usage_overlay.py\" --spawn",
+            "timeout": 10,
+            "statusMessage": "Starting usage overlay"
+          }
+        ]
+      }
+    ]
+  }
+}

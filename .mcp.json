@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "conversation-usage-meter": {
+      "title": "Conversation Usage Meter",
+      "description": "Read local Codex session token_count events and format a usage footer.",
+      "cwd": ".",
+      "command": "python",
+      "args": [
+        "./scripts/mcp_server.py"
+      ]
+    }
+  }
+}
