@@ -321,12 +321,8 @@ def write_state(report, text: str) -> None:
 
 def format_overlay_text(report) -> str:
     if report is None:
-        return "当前对话：等待 token_count\n最近一轮：暂无数据"
+        return "最近一轮：暂无数据\n速度 --；耗时 --\n额度：--；--"
 
-    session_total = format_number(report.thread_total_tokens)
-    session_input = format_input_breakdown(report.thread_input_tokens, report.thread_cached_input_tokens, "zh-Hans")
-    session_output = format_number(report.thread_output_tokens)
-    session_reasoning = format_number(report.thread_reasoning_tokens)
     turn_total = format_number(report.total_tokens)
     input_tokens = format_input_breakdown(report.input_tokens, report.cached_input_tokens, "zh-Hans")
     output_tokens = format_number(report.output_tokens)
@@ -337,8 +333,6 @@ def format_overlay_text(report) -> str:
     weekly_quota = format_quota_value(report.weekly_remaining_percent, report.secondary_resets_at, "zh-Hans", True)
 
     return (
-        f"当前对话：总 {session_total} token\n"
-        f"输入 {session_input}；输出 {session_output}，推理 {session_reasoning}\n"
         f"最近一轮：{turn_total}（输入 {input_tokens}，输出 {output_tokens}，推理 {reasoning_tokens}）\n"
         f"速度 {speed}；耗时 {elapsed}\n"
         f"额度：{primary_quota}；{weekly_quota}"

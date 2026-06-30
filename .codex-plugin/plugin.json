@@ -1,6 +1,6 @@
 {
   "name": "conversation-usage-meter",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "Show Codex token, speed, elapsed time, and quota metrics in an overlay or on demand.",
   "author": {
     "name": "ni1l"
@@ -10,7 +10,7 @@
   "interface": {
     "displayName": "Conversation Usage Meter",
     "shortDescription": "Show token usage and quota metrics in an overlay or on demand.",
-    "longDescription": "Conversation Usage Meter reads local Codex session token_count events for the selected Codex thread and formats concise localized usage metrics with conversation totals split by input/cache/output/reasoning, turn tokens, output tokens per second, elapsed time, and compact remaining rate-limit percentages and reset times when available. Conversation totals are calculated by summing token_count last_token_usage events inside the selected thread's own JSONL file. It keeps the MCP query tool and starts a local transparent overlay from a SessionStart hook. The overlay follows Codex active-thread events from local desktop logs when available and otherwise tracks SQLite recency for the selected thread, so clicking another thread can update the HUD even before sending a message. It hides automatically when Codex is not the foreground window, and the plugin does not use Stop-hook insertion because Codex surfaces Stop continuation prompts in the transcript.",
+    "longDescription": "Conversation Usage Meter reads local Codex session token_count events and formats concise localized usage metrics with latest-turn tokens, output tokens per second, elapsed time, and compact remaining rate-limit percentages and reset times when available. It keeps the MCP query tool and starts a local transparent overlay from a SessionStart hook. The overlay intentionally omits conversation-total token counts because Codex does not expose a consistently reliable selected-thread signal in every desktop build. It hides automatically when Codex is not the foreground window, and the plugin does not use Stop-hook insertion because Codex surfaces Stop continuation prompts in the transcript.",
     "developerName": "ni1l",
     "category": "Productivity",
     "capabilities": [

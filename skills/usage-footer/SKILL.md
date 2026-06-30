@@ -1,6 +1,6 @@
 ---
 name: usage-footer
-description: Use when Codex should show usage metrics on demand, including this turn's token usage, cached input tokens, output tokens per second, elapsed time, compact quota reset/remaining values, and overlay conversation totals split by input/cache/output/reasoning. The plugin also provides a local transparent overlay started by SessionStart; do not use Stop hooks to append usage automatically.
+description: Use when Codex should show usage metrics on demand, including this turn's token usage, cached input tokens, output tokens per second, elapsed time, and compact quota reset/remaining values. The plugin also provides a local transparent overlay started by SessionStart; do not use Stop hooks to append usage automatically.
 ---
 
 # Usage Footer
@@ -18,14 +18,11 @@ Use this skill when a response should include Codex usage metrics, especially af
 ## Notes
 
 - The tool reads local Codex session `token_count` events from `~/.codex/sessions`.
-- By default the tool resolves the currently selected Codex thread from Codex desktop `thread_stream_view_activity_changed` log events when available, then reads that thread's rollout JSONL path from `~/.codex/state_5.sqlite`. It falls back to SQLite `recency_at_ms` and then the latest session file when local active-thread log events are unavailable.
-- The overlay keeps an in-process sticky selected thread but accepts a newer SQLite `recency_at_ms` as a selection signal; transcript-only background updates should not steal the HUD unless Codex advances recency for that thread.
+- The overlay intentionally omits conversation-total token counts because Codex desktop does not expose a consistently reliable selected-thread signal in every build.
 - The plugin intentionally does not use a `Stop` hook for automatic insertion because Codex surfaces Stop continuation prompts in the transcript.
 - A `SessionStart` hook may launch `scripts/usage_overlay.py --spawn`; that hook only starts the local transparent overlay and exits without creating model-visible continuation prompts.
 - The overlay uses relative positioning. Defaults: `CODEX_USAGE_OVERLAY_X_RATIO=0.12`, `CODEX_USAGE_OVERLAY_Y_RATIO=0.06`, `CODEX_USAGE_OVERLAY_WIDTH_RATIO=0.18`, and `CODEX_USAGE_OVERLAY_OPACITY=0.82`.
-- The overlay shows conversation totals split by input, cached input, output, and reasoning tokens.
 - Current-turn token usage is calculated by summing all `last_token_usage` events after the most recent user message. Multiple tool/model continuations in one assistant turn are intentionally included.
-- Conversation totals are calculated by summing every `token_count.info.last_token_usage` event in the selected thread's own rollout JSONL file; do not treat Codex `total_token_usage` as the thread total unless per-event data is unavailable.
 - `cached_input_tokens` is shown when Codex records it; it is a subset of input tokens, not extra tokens on top of input.
 - Output tokens per second is calculated from summed output tokens divided by elapsed time between the preceding user message and the latest `token_count` event.
 - Remaining quota percentages are calculated from Codex rate limit `used_percent` fields when Codex records them; after `resets_at` has passed locally, the remaining percentage is displayed as `100.0%`. Pending reset times use compact display, with primary reset as `HH:MM` and weekly reset as `MM-DD HH:MM`.
