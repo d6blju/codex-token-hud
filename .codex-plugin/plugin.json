@@ -1,6 +1,6 @@
 {
   "name": "conversation-usage-meter",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "Show Codex token, speed, elapsed time, and quota metrics in an overlay or on demand.",
   "author": {
     "name": "ni1l"

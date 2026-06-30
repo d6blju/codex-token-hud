@@ -13,7 +13,6 @@ from pathlib import Path
 
 from usage_meter import (
     build_report,
-    format_input_breakdown,
     format_number,
     format_quota_value,
     format_rate,
@@ -321,10 +320,11 @@ def write_state(report, text: str) -> None:
 
 def format_overlay_text(report) -> str:
     if report is None:
-        return "最近一轮：暂无数据\n速度 --；耗时 --\n额度：--；--"
+        return "最近一轮：暂无数据\n输入 --，缓存 --，输出 --，推理 --\n速度 --；耗时 --\n额度：--；--"
 
     turn_total = format_number(report.total_tokens)
-    input_tokens = format_input_breakdown(report.input_tokens, report.cached_input_tokens, "zh-Hans")
+    input_tokens = format_number(report.input_tokens)
+    cached_input_tokens = format_number(report.cached_input_tokens)
     output_tokens = format_number(report.output_tokens)
     reasoning_tokens = format_number(report.reasoning_tokens)
     speed = format_rate(report.output_tokens_per_second)
@@ -333,7 +333,8 @@ def format_overlay_text(report) -> str:
     weekly_quota = format_quota_value(report.weekly_remaining_percent, report.secondary_resets_at, "zh-Hans", True)
 
     return (
-        f"最近一轮：{turn_total}（输入 {input_tokens}，输出 {output_tokens}，推理 {reasoning_tokens}）\n"
+        f"最近一轮：总 {turn_total} token\n"
+        f"输入 {input_tokens}，缓存 {cached_input_tokens}，输出 {output_tokens}，推理 {reasoning_tokens}\n"
         f"速度 {speed}；耗时 {elapsed}\n"
         f"额度：{primary_quota}；{weekly_quota}"
     )
