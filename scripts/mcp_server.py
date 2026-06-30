@@ -121,7 +121,7 @@ def handle(request: dict[str, Any]) -> dict[str, Any] | None:
             {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "conversation-usage-meter", "version": "0.1.13"},
+                "serverInfo": {"name": "conversation-usage-meter", "version": "0.1.14"},
             },
         )
     if method == "tools/list":

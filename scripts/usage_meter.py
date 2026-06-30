@@ -52,6 +52,12 @@ class ThreadCandidate:
 
 _selected_thread_id: str | None = None
 _selected_thread_recency_ms = 0
+THREAD_ID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+ACTIVE_THREAD_RE = re.compile(
+    r"thread_stream_view_activity_changed active=true conversationId=([0-9a-f-]{36}).*?"
+    r"rendererWindowFocused=true.*?rendererWindowVisible=true",
+    re.I,
+)
 
 
 def parse_timestamp(value: str | None) -> datetime | None:
@@ -92,6 +98,12 @@ def current_thread_session_file() -> Path | None:
 def selected_thread_candidate() -> ThreadCandidate | None:
     global _selected_thread_id, _selected_thread_recency_ms
 
+    active = active_thread_candidate_from_logs()
+    if active is not None:
+        _selected_thread_id = active.thread_id
+        _selected_thread_recency_ms = active.recency_at_ms
+        return active
+
     candidates = list_thread_candidates()
     if not candidates:
         return None
@@ -115,6 +127,49 @@ def selected_thread_candidate() -> ThreadCandidate | None:
         return latest
 
     return current
+
+
+def active_thread_candidate_from_logs() -> ThreadCandidate | None:
+    thread_id = active_thread_id_from_logs()
+    if not thread_id:
+        return None
+    return thread_candidate_for_id(thread_id)
+
+
+def active_thread_id_from_logs() -> str | None:
+    log_root = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "Codex" / "Logs"
+    if not log_root.is_dir():
+        return None
+    try:
+        log_files = sorted(
+            (path for path in log_root.rglob("*.log") if path.is_file()),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )[:8]
+    except OSError:
+        return None
+
+    for path in log_files:
+        try:
+            data = tail_bytes(path, 1_500_000)
+        except OSError:
+            continue
+        text = data.decode("utf-8", errors="ignore")
+        for line in reversed(text.splitlines()):
+            match = ACTIVE_THREAD_RE.search(line)
+            if match:
+                thread_id = match.group(1)
+                if THREAD_ID_RE.match(thread_id):
+                    return thread_id
+    return None
+
+
+def tail_bytes(path: Path, limit: int) -> bytes:
+    size = path.stat().st_size
+    with path.open("rb") as handle:
+        if size > limit:
+            handle.seek(size - limit)
+        return handle.read()
 
 
 def is_likely_user_thread_selection(candidate: ThreadCandidate, current: ThreadCandidate) -> bool:
@@ -165,6 +220,54 @@ def list_thread_candidates() -> list[ThreadCandidate]:
                 )
             )
     return candidates
+
+
+def thread_candidate_for_id(thread_id: str) -> ThreadCandidate | None:
+    if not THREAD_ID_RE.match(thread_id):
+        return None
+    row = query_thread_row(
+        """
+        select id, rollout_path, coalesce(recency_at_ms, 0), coalesce(updated_at_ms, updated_at * 1000, 0)
+        from threads
+        where id = ?
+          and rollout_path is not null
+          and rollout_path != ''
+        limit 1
+        """,
+        (thread_id,),
+    )
+    if row is None:
+        return None
+    return row_to_candidate(row)
+
+
+def query_thread_row(sql: str, params: tuple[Any, ...] = ()) -> tuple[Any, ...] | None:
+    state_path = Path.home() / ".codex" / "state_5.sqlite"
+    if not state_path.is_file():
+        return None
+    try:
+        con = sqlite3.connect(str(state_path), timeout=0.2)
+        try:
+            return con.execute(sql, params).fetchone()
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return None
+
+
+def row_to_candidate(row: tuple[Any, ...]) -> ThreadCandidate | None:
+    thread_id, rollout_path, recency_at_ms, updated_at_ms = row
+    if not thread_id or not rollout_path:
+        return None
+    path = normalize_path(str(rollout_path))
+    if not path.is_file():
+        return None
+    return ThreadCandidate(
+        thread_id=str(thread_id),
+        rollout_path=path,
+        recency_at_ms=int(recency_at_ms or 0),
+        updated_at_ms=int(updated_at_ms or 0),
+    )
 
 
 def normalize_path(value: str) -> Path:

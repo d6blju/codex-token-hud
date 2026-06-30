@@ -8,6 +8,7 @@ Local Codex plugin for viewing Codex usage metrics.
 - Local transparent overlay started by a `SessionStart` hook.
 - Overlay auto-hides when Codex is not the foreground window.
 - Metrics follow the currently or most recently selected Codex thread via Codex local thread state.
+- Codex active-thread desktop log events are preferred, so clicking a different thread updates the HUD even before you send a message.
 - A sticky selector keeps background-running threads from stealing the HUD after you switch threads.
 - Conversation totals are split into input, cached input, output, and reasoning tokens.
 - Cached input tokens are shown separately when Codex records them.

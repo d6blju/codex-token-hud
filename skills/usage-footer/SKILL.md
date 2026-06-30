@@ -18,7 +18,7 @@ Use this skill when a response should include Codex usage metrics, especially af
 ## Notes
 
 - The tool reads local Codex session `token_count` events from `~/.codex/sessions`.
-- By default the tool resolves the currently or most recently selected Codex thread from `~/.codex/state_5.sqlite`, then reads that thread's rollout JSONL path. It falls back to the latest session file when local thread state is unavailable.
+- By default the tool resolves the currently selected Codex thread from Codex desktop `thread_stream_view_activity_changed` log events, then reads that thread's rollout JSONL path from `~/.codex/state_5.sqlite`. This makes HUD updates follow a thread click even before the user sends a message. It falls back to SQLite recency and then the latest session file when local active-thread state is unavailable.
 - The overlay keeps an in-process sticky selected thread; background-running threads whose transcript updates continue should not steal the HUD unless the user actually selects them.
 - The plugin intentionally does not use a `Stop` hook for automatic insertion because Codex surfaces Stop continuation prompts in the transcript.
 - A `SessionStart` hook may launch `scripts/usage_overlay.py --spawn`; that hook only starts the local transparent overlay and exits without creating model-visible continuation prompts.
