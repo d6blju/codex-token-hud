@@ -25,6 +25,6 @@ Use this skill when a response should include Codex usage metrics, especially af
 - Current-turn token usage is calculated by summing all `last_token_usage` events after the most recent user message. Multiple tool/model continuations in one assistant turn are intentionally included.
 - `cached_input_tokens` is shown when Codex records it; it is a subset of input tokens, not extra tokens on top of input.
 - Output tokens per second is calculated from summed output tokens divided by elapsed time between the preceding user message and the latest `token_count` event.
-- Remaining quota percentages are calculated from Codex rate limit `used_percent` fields when Codex records them; after `resets_at` has passed locally, the remaining percentage is displayed as `100.0%`. Pending reset times use compact display, with primary reset as `HH:MM` and weekly reset as `MM-DD HH:MM`.
+- Remaining quota percentages are calculated from Codex rate limit `used_percent` fields when Codex records them; after `resets_at` has passed locally, the saved snapshot is treated as stale and the overlay shows `--` until the next `token_count` refresh. Pending reset times use compact display, with primary reset as `HH:MM` and weekly reset as `MM-DD HH:MM`.
 - The footer labels are localized by the tool. `language=auto` infers from the latest user message and local environment when Codex does not pass a language explicitly.
 - Codex does not expose all account quota details in every environment; unavailable values should be shown plainly.

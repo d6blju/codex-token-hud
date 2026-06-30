@@ -500,10 +500,15 @@ def sum_turn_usage(token_events: list[dict[str, Any]]) -> dict[str, int | None]:
     return {field: totals[field] if seen[field] else None for field in fields}
 
 
-def remaining_percent(used_percent: float | None, resets_at: datetime | None = None) -> float | None:
-    if resets_at is not None and datetime.now(timezone.utc) >= resets_at:
-        return 100.0
+def remaining_percent(
+    used_percent: float | None,
+    resets_at: datetime | None = None,
+) -> float | None:
     if used_percent is None:
+        return None
+    if resets_at is not None and datetime.now(timezone.utc) >= resets_at:
+        # Once a saved rate-limit snapshot is past its reset time, its used_percent is stale.
+        # Wait for the next token_count event instead of guessing that the account is at 100%.
         return None
     return max(0.0, min(100.0, 100.0 - used_percent))
 
@@ -602,7 +607,7 @@ def format_quota_value(
     language: str = "en",
     include_date: bool = False,
 ) -> str:
-    value = format_percent(percent)
+    value = "--" if percent is None and language == "zh-Hans" else format_percent(percent)
     if resets_at is not None and datetime.now(timezone.utc) >= resets_at:
         resets_at = None
     reset = format_reset_time(resets_at, language, include_date)
