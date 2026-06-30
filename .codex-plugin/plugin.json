@@ -1,6 +1,6 @@
 {
   "name": "conversation-usage-meter",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Show Codex token, speed, elapsed time, and quota metrics in an overlay or on demand.",
   "author": {
     "name": "ni1l"
@@ -10,7 +10,7 @@
   "interface": {
     "displayName": "Conversation Usage Meter",
     "shortDescription": "Show token usage and quota metrics in an overlay or on demand.",
-    "longDescription": "Conversation Usage Meter reads local Codex session token_count events for the currently or most recently selected Codex thread and formats concise localized usage metrics with conversation totals split by input/cache/output/reasoning, turn tokens, output tokens per second, elapsed time, and compact remaining rate-limit percentages and reset times when available. It keeps the MCP query tool and starts a local transparent overlay from a SessionStart hook. The overlay hides automatically when Codex is not the foreground window, and the plugin does not use Stop-hook insertion because Codex surfaces Stop continuation prompts in the transcript.",
+    "longDescription": "Conversation Usage Meter reads local Codex session token_count events for the selected Codex thread and formats concise localized usage metrics with conversation totals split by input/cache/output/reasoning, turn tokens, output tokens per second, elapsed time, and compact remaining rate-limit percentages and reset times when available. It keeps the MCP query tool and starts a local transparent overlay from a SessionStart hook. The overlay uses a sticky thread selector so background-running threads do not steal the HUD from the thread the user switched to. It hides automatically when Codex is not the foreground window, and the plugin does not use Stop-hook insertion because Codex surfaces Stop continuation prompts in the transcript.",
     "developerName": "ni1l",
     "category": "Productivity",
     "capabilities": [

@@ -42,6 +42,18 @@ class UsageReport:
     language: str
 
 
+@dataclass
+class ThreadCandidate:
+    thread_id: str
+    rollout_path: Path
+    recency_at_ms: int
+    updated_at_ms: int
+
+
+_selected_thread_id: str | None = None
+_selected_thread_recency_ms = 0
+
+
 def parse_timestamp(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -71,33 +83,88 @@ def latest_session_file(sessions_root: Path) -> Path | None:
 
 
 def current_thread_session_file() -> Path | None:
+    candidate = selected_thread_candidate()
+    if candidate is None:
+        return None
+    return candidate.rollout_path
+
+
+def selected_thread_candidate() -> ThreadCandidate | None:
+    global _selected_thread_id, _selected_thread_recency_ms
+
+    candidates = list_thread_candidates()
+    if not candidates:
+        return None
+
+    by_id = {candidate.thread_id: candidate for candidate in candidates}
+    current = by_id.get(_selected_thread_id) if _selected_thread_id else None
+    latest = candidates[0]
+
+    if current is None:
+        _selected_thread_id = latest.thread_id
+        _selected_thread_recency_ms = latest.recency_at_ms
+        return latest
+
+    if latest.thread_id == current.thread_id:
+        _selected_thread_recency_ms = max(_selected_thread_recency_ms, latest.recency_at_ms)
+        return latest
+
+    if is_likely_user_thread_selection(latest, current):
+        _selected_thread_id = latest.thread_id
+        _selected_thread_recency_ms = latest.recency_at_ms
+        return latest
+
+    return current
+
+
+def is_likely_user_thread_selection(candidate: ThreadCandidate, current: ThreadCandidate) -> bool:
+    if candidate.recency_at_ms <= max(current.recency_at_ms, _selected_thread_recency_ms):
+        return False
+    # A sidebar click updates recency without changing transcript content. Background agent progress
+    # usually advances updated_at_ms and can otherwise steal the HUD while another thread is selected.
+    return candidate.recency_at_ms > candidate.updated_at_ms + 1000
+
+
+def list_thread_candidates() -> list[ThreadCandidate]:
     state_path = Path.home() / ".codex" / "state_5.sqlite"
     if not state_path.is_file():
-        return None
+        return []
 
     try:
         con = sqlite3.connect(str(state_path), timeout=0.2)
         try:
-            row = con.execute(
+            rows = con.execute(
                 """
-                select rollout_path
+                select id, rollout_path, coalesce(recency_at_ms, 0), coalesce(updated_at_ms, updated_at * 1000, 0)
                 from threads
                 where rollout_path is not null
                   and rollout_path != ''
                   and coalesce(source, '') not like '%subagent%'
+                  and coalesce(source, '') != 'exec'
                 order by recency_at_ms desc, updated_at_ms desc, updated_at desc
-                limit 1
+                limit 20
                 """
-            ).fetchone()
+            ).fetchall()
         finally:
             con.close()
     except sqlite3.Error:
-        return None
+        return []
 
-    if not row or not row[0]:
-        return None
-    path = normalize_path(row[0])
-    return path if path.is_file() else None
+    candidates: list[ThreadCandidate] = []
+    for thread_id, rollout_path, recency_at_ms, updated_at_ms in rows:
+        if not thread_id or not rollout_path:
+            continue
+        path = normalize_path(rollout_path)
+        if path.is_file():
+            candidates.append(
+                ThreadCandidate(
+                    thread_id=str(thread_id),
+                    rollout_path=path,
+                    recency_at_ms=int(recency_at_ms or 0),
+                    updated_at_ms=int(updated_at_ms or 0),
+                )
+            )
+    return candidates
 
 
 def normalize_path(value: str) -> Path:
