@@ -98,14 +98,20 @@ def current_thread_session_file() -> Path | None:
 def selected_thread_candidate() -> ThreadCandidate | None:
     global _selected_thread_id, _selected_thread_recency_ms
 
+    candidates = list_thread_candidates()
     active = active_thread_candidate_from_logs()
     if active is not None:
-        _selected_thread_id = active.thread_id
-        _selected_thread_recency_ms = active.recency_at_ms
-        return active
+        latest_from_sqlite = candidates[0] if candidates else None
+        if latest_from_sqlite is None or active.recency_at_ms >= latest_from_sqlite.recency_at_ms:
+            _selected_thread_id = active.thread_id
+            _selected_thread_recency_ms = active.recency_at_ms
+            return active
 
-    candidates = list_thread_candidates()
     if not candidates:
+        if active is not None:
+            _selected_thread_id = active.thread_id
+            _selected_thread_recency_ms = active.recency_at_ms
+            return active
         return None
 
     by_id = {candidate.thread_id: candidate for candidate in candidates}
@@ -137,12 +143,14 @@ def active_thread_candidate_from_logs() -> ThreadCandidate | None:
 
 
 def active_thread_id_from_logs() -> str | None:
-    log_root = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "Codex" / "Logs"
-    if not log_root.is_dir():
-        return None
     try:
         log_files = sorted(
-            (path for path in log_root.rglob("*.log") if path.is_file()),
+            (
+                path
+                for log_root in codex_log_roots()
+                for path in log_root.rglob("*.log")
+                if path.is_file()
+            ),
             key=lambda path: path.stat().st_mtime,
             reverse=True,
         )[:8]
@@ -164,6 +172,30 @@ def active_thread_id_from_logs() -> str | None:
     return None
 
 
+def codex_log_roots() -> list[Path]:
+    local_app_data = Path(os.environ.get("LOCALAPPDATA", str(Path.home())))
+    roots = [local_app_data / "Codex" / "Logs"]
+
+    packages_root = local_app_data / "Packages"
+    try:
+        roots.extend(
+            package / "LocalCache" / "Local" / "Codex" / "Logs"
+            for package in packages_root.glob("OpenAI.Codex_*")
+            if package.is_dir()
+        )
+    except OSError:
+        pass
+
+    existing: list[Path] = []
+    seen: set[str] = set()
+    for root in roots:
+        key = str(root).lower()
+        if key not in seen and root.is_dir():
+            seen.add(key)
+            existing.append(root)
+    return existing
+
+
 def tail_bytes(path: Path, limit: int) -> bytes:
     size = path.stat().st_size
     with path.open("rb") as handle:
@@ -175,9 +207,11 @@ def tail_bytes(path: Path, limit: int) -> bytes:
 def is_likely_user_thread_selection(candidate: ThreadCandidate, current: ThreadCandidate) -> bool:
     if candidate.recency_at_ms <= max(current.recency_at_ms, _selected_thread_recency_ms):
         return False
-    # A sidebar click updates recency without changing transcript content. Background agent progress
-    # usually advances updated_at_ms and can otherwise steal the HUD while another thread is selected.
-    return candidate.recency_at_ms > candidate.updated_at_ms + 1000
+    # recency_at_ms is the best local signal that Codex marked a thread as recently selected.
+    # updated_at_ms may advance immediately after selection when the user sends a message there, so
+    # it must not veto an otherwise newer recency value. Background progress that only updates the
+    # transcript should not pass the recency check above.
+    return True
 
 
 def list_thread_candidates() -> list[ThreadCandidate]:
