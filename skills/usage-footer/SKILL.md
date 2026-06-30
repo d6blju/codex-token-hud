@@ -18,6 +18,7 @@ Use this skill when a response should include Codex usage metrics, especially af
 ## Notes
 
 - The tool reads local Codex session `token_count` events from `~/.codex/sessions`.
+- By default the tool resolves the currently or most recently selected Codex thread from `~/.codex/state_5.sqlite`, then reads that thread's rollout JSONL path. It falls back to the latest session file when local thread state is unavailable.
 - The plugin intentionally does not use a `Stop` hook for automatic insertion because Codex surfaces Stop continuation prompts in the transcript.
 - A `SessionStart` hook may launch `scripts/usage_overlay.py --spawn`; that hook only starts the local transparent overlay and exits without creating model-visible continuation prompts.
 - The overlay uses relative positioning. Defaults: `CODEX_USAGE_OVERLAY_X_RATIO=0.12`, `CODEX_USAGE_OVERLAY_Y_RATIO=0.06`, `CODEX_USAGE_OVERLAY_WIDTH_RATIO=0.18`, and `CODEX_USAGE_OVERLAY_OPACITY=0.82`.
@@ -25,6 +26,6 @@ Use this skill when a response should include Codex usage metrics, especially af
 - Current-turn token usage is calculated by summing all `last_token_usage` events after the most recent user message. Multiple tool/model continuations in one assistant turn are intentionally included.
 - `cached_input_tokens` is shown when Codex records it; it is a subset of input tokens, not extra tokens on top of input.
 - Output tokens per second is calculated from summed output tokens divided by elapsed time between the preceding user message and the latest `token_count` event.
-- Remaining quota percentages are calculated from Codex rate limit `used_percent` fields when Codex records them; reset times come from `resets_at` and use compact display, with primary reset as `HH:MM` and weekly reset as `MM-DD HH:MM`.
+- Remaining quota percentages are calculated from Codex rate limit `used_percent` fields when Codex records them; after `resets_at` has passed locally, the remaining percentage is displayed as `100.0%`. Pending reset times use compact display, with primary reset as `HH:MM` and weekly reset as `MM-DD HH:MM`.
 - The footer labels are localized by the tool. `language=auto` infers from the latest user message and local environment when Codex does not pass a language explicitly.
 - Codex does not expose all account quota details in every environment; unavailable values should be shown plainly.

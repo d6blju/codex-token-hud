@@ -6,6 +6,7 @@ import json
 import math
 import os
 import re
+import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -67,6 +68,42 @@ def latest_session_file(sessions_root: Path) -> Path | None:
     if not candidates:
         return None
     return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def current_thread_session_file() -> Path | None:
+    state_path = Path.home() / ".codex" / "state_5.sqlite"
+    if not state_path.is_file():
+        return None
+
+    try:
+        con = sqlite3.connect(str(state_path), timeout=0.2)
+        try:
+            row = con.execute(
+                """
+                select rollout_path
+                from threads
+                where rollout_path is not null
+                  and rollout_path != ''
+                  and coalesce(source, '') not like '%subagent%'
+                order by recency_at_ms desc, updated_at_ms desc, updated_at desc
+                limit 1
+                """
+            ).fetchone()
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return None
+
+    if not row or not row[0]:
+        return None
+    path = normalize_path(row[0])
+    return path if path.is_file() else None
+
+
+def normalize_path(value: str) -> Path:
+    if value.startswith("\\\\?\\"):
+        value = value[4:]
+    return Path(value)
 
 
 def as_number(value: Any) -> float | None:
@@ -149,6 +186,8 @@ def find_latest_usage(session_path: Path) -> UsageReport | None:
 
     primary_used = as_number(primary.get("used_percent"))
     secondary_used = as_number(secondary.get("used_percent"))
+    primary_resets_at = parse_unix_timestamp(primary.get("resets_at"))
+    secondary_resets_at = parse_unix_timestamp(secondary.get("resets_at"))
 
     return UsageReport(
         session_path=session_path,
@@ -166,14 +205,14 @@ def find_latest_usage(session_path: Path) -> UsageReport | None:
         thread_output_tokens=as_int(total_usage.get("output_tokens")),
         thread_reasoning_tokens=as_int(total_usage.get("reasoning_output_tokens")),
         output_tokens_per_second=output_tokens_per_second,
-        hourly_remaining_percent=remaining_percent(primary_used),
-        weekly_remaining_percent=remaining_percent(secondary_used),
+        hourly_remaining_percent=remaining_percent(primary_used, primary_resets_at),
+        weekly_remaining_percent=remaining_percent(secondary_used, secondary_resets_at),
         primary_used_percent=primary_used,
         secondary_used_percent=secondary_used,
         primary_window_minutes=as_int(primary.get("window_minutes")),
         secondary_window_minutes=as_int(secondary.get("window_minutes")),
-        primary_resets_at=parse_unix_timestamp(primary.get("resets_at")),
-        secondary_resets_at=parse_unix_timestamp(secondary.get("resets_at")),
+        primary_resets_at=primary_resets_at,
+        secondary_resets_at=secondary_resets_at,
         model_call_count=len(turn_token_events),
         language=detect_language(last_user_text),
     )
@@ -242,7 +281,9 @@ def sum_turn_usage(token_events: list[dict[str, Any]]) -> dict[str, int | None]:
     return {field: totals[field] if seen[field] else None for field in fields}
 
 
-def remaining_percent(used_percent: float | None) -> float | None:
+def remaining_percent(used_percent: float | None, resets_at: datetime | None = None) -> float | None:
+    if resets_at is not None and datetime.now(timezone.utc) >= resets_at:
+        return 100.0
     if used_percent is None:
         return None
     return max(0.0, min(100.0, 100.0 - used_percent))
@@ -343,6 +384,8 @@ def format_quota_value(
     include_date: bool = False,
 ) -> str:
     value = format_percent(percent)
+    if resets_at is not None and datetime.now(timezone.utc) >= resets_at:
+        resets_at = None
     reset = format_reset_time(resets_at, language, include_date)
     if reset:
         return f"{reset} {value}"
@@ -419,7 +462,7 @@ def build_report(session_path: str | None = None) -> UsageReport | None:
     if session_path:
         path = Path(session_path).expanduser()
     else:
-        path = latest_session_file(Path.home() / ".codex" / "sessions")
+        path = current_thread_session_file() or latest_session_file(Path.home() / ".codex" / "sessions")
         if path is None:
             return None
     return find_latest_usage(path)
