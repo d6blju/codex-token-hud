@@ -11,6 +11,7 @@ Local Codex plugin for viewing Codex usage metrics.
 - Codex active-thread desktop log events are preferred, so clicking a different thread updates the HUD even before you send a message.
 - A sticky selector keeps background-running threads from stealing the HUD after you switch threads.
 - Conversation totals are split into input, cached input, output, and reasoning tokens.
+- Conversation totals are summed from the selected thread's own JSONL `last_token_usage` events.
 - Cached input tokens are shown separately when Codex records them.
 - Quota reset times use compact display, such as `02:56 25.0%` and `07-06 10:47 74.0%`.
 - No `Stop` hook continuation, so it does not create visible `<hook_prompt>` blocks or trigger a second model call.

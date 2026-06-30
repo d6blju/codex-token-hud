@@ -291,12 +291,17 @@ def as_int(value: Any) -> int | None:
     return int(number)
 
 
+def prefer_value(primary: int | None, fallback: int | None) -> int | None:
+    return primary if primary is not None else fallback
+
+
 def find_latest_usage(session_path: Path) -> UsageReport | None:
     latest_token_event: dict[str, Any] | None = None
     latest_token_timestamp: datetime | None = None
     last_user_timestamp: datetime | None = None
     last_user_text: str = ""
     turn_started_at: datetime | None = None
+    all_token_events: list[dict[str, Any]] = []
     turn_token_events: list[dict[str, Any]] = []
     turn_first_token_timestamp: datetime | None = None
 
@@ -325,6 +330,7 @@ def find_latest_usage(session_path: Path) -> UsageReport | None:
             if event_type == "event_msg" and payload_type == "token_count":
                 latest_token_event = event
                 latest_token_timestamp = timestamp
+                all_token_events.append(event)
                 if turn_first_token_timestamp is None:
                     turn_first_token_timestamp = timestamp
                 turn_token_events.append(event)
@@ -334,6 +340,8 @@ def find_latest_usage(session_path: Path) -> UsageReport | None:
 
     if not turn_token_events:
         turn_token_events = [latest_token_event]
+    if not all_token_events:
+        all_token_events = [latest_token_event]
 
     payload = latest_token_event.get("payload") or {}
     info = payload.get("info") or {}
@@ -348,6 +356,7 @@ def find_latest_usage(session_path: Path) -> UsageReport | None:
         elapsed_seconds = max(0.0, (latest_token_timestamp - elapsed_start).total_seconds())
 
     summed_usage = sum_turn_usage(turn_token_events)
+    session_usage = sum_turn_usage(all_token_events)
 
     output_tokens = summed_usage["output_tokens"]
     output_tokens_per_second: float | None = None
@@ -369,11 +378,17 @@ def find_latest_usage(session_path: Path) -> UsageReport | None:
         output_tokens=output_tokens,
         reasoning_tokens=summed_usage["reasoning_output_tokens"],
         total_tokens=summed_usage["total_tokens"],
-        thread_total_tokens=as_int(total_usage.get("total_tokens")),
-        thread_input_tokens=as_int(total_usage.get("input_tokens")),
-        thread_cached_input_tokens=as_int(total_usage.get("cached_input_tokens")),
-        thread_output_tokens=as_int(total_usage.get("output_tokens")),
-        thread_reasoning_tokens=as_int(total_usage.get("reasoning_output_tokens")),
+        thread_total_tokens=prefer_value(session_usage["total_tokens"], as_int(total_usage.get("total_tokens"))),
+        thread_input_tokens=prefer_value(session_usage["input_tokens"], as_int(total_usage.get("input_tokens"))),
+        thread_cached_input_tokens=prefer_value(
+            session_usage["cached_input_tokens"],
+            as_int(total_usage.get("cached_input_tokens")),
+        ),
+        thread_output_tokens=prefer_value(session_usage["output_tokens"], as_int(total_usage.get("output_tokens"))),
+        thread_reasoning_tokens=prefer_value(
+            session_usage["reasoning_output_tokens"],
+            as_int(total_usage.get("reasoning_output_tokens")),
+        ),
         output_tokens_per_second=output_tokens_per_second,
         hourly_remaining_percent=remaining_percent(primary_used, primary_resets_at),
         weekly_remaining_percent=remaining_percent(secondary_used, secondary_resets_at),

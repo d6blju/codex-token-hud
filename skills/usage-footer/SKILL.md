@@ -25,6 +25,7 @@ Use this skill when a response should include Codex usage metrics, especially af
 - The overlay uses relative positioning. Defaults: `CODEX_USAGE_OVERLAY_X_RATIO=0.12`, `CODEX_USAGE_OVERLAY_Y_RATIO=0.06`, `CODEX_USAGE_OVERLAY_WIDTH_RATIO=0.18`, and `CODEX_USAGE_OVERLAY_OPACITY=0.82`.
 - The overlay shows conversation totals split by input, cached input, output, and reasoning tokens.
 - Current-turn token usage is calculated by summing all `last_token_usage` events after the most recent user message. Multiple tool/model continuations in one assistant turn are intentionally included.
+- Conversation totals are calculated by summing every `token_count.info.last_token_usage` event in the selected thread's own rollout JSONL file; do not treat Codex `total_token_usage` as the thread total unless per-event data is unavailable.
 - `cached_input_tokens` is shown when Codex records it; it is a subset of input tokens, not extra tokens on top of input.
 - Output tokens per second is calculated from summed output tokens divided by elapsed time between the preceding user message and the latest `token_count` event.
 - Remaining quota percentages are calculated from Codex rate limit `used_percent` fields when Codex records them; after `resets_at` has passed locally, the remaining percentage is displayed as `100.0%`. Pending reset times use compact display, with primary reset as `HH:MM` and weekly reset as `MM-DD HH:MM`.
